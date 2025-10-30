@@ -95,13 +95,15 @@ connectDB()
 app.use(helmet());
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
-// ✅ Updated CORS setup
+// ✅ Updated CORS setup (allows localhost + deployed frontend)
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL, // from .env
+      process.env.FRONTEND_URL,              // e.g. https://codeelevatex.sbs
       'https://codeelevatex.sbs',
       'https://www.codeelevatex.sbs',
+      'http://localhost:3000',               // 👈 allow local dev
+      'http://127.0.0.1:3000',               // 👈 allow local loopback
     ],
     credentials: true,
   })
