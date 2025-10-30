@@ -90,7 +90,6 @@ connectDB()
   .catch((err) => {
     console.error('❌ MongoDB Connection Failed:', err.message);
   });
-
 // -------------------- MIDDLEWARES --------------------
 app.use(helmet());
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
@@ -106,12 +105,17 @@ app.use(
       'http://127.0.0.1:3000',               // 👈 allow local loopback
     ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 600, // Cache preflight for 10 minutes
   })
 );
 
 app.use('/api/payment/razorpay-webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 
 // -------------------- BASIC ROUTES --------------------
 app.get('/', (req, res) => {
