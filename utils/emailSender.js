@@ -1,42 +1,28 @@
-const nodemailer = require("nodemailer");
+const brevo = require('@getbrevo/brevo');
 
 // -------------------- CONFIG --------------------
-const SMTP_HOST = process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com";
-const SMTP_PORT = parseInt(process.env.BREVO_SMTP_PORT, 10) || 587;
-const SMTP_USER = process.env.BREVO_SMTP_USER; // MUST exist
-const SMTP_PASS = process.env.BREVO_SMTP_PASS; // MUST exist
-const FROM_EMAIL = process.env.FROM_EMAIL || SMTP_USER;
-const FROM_NAME = process.env.FROM_NAME || "YourApp";
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM_EMAIL = process.env.FROM_EMAIL || "no-reply@codeelevatex.sbs";
+const FROM_NAME = process.env.FROM_NAME || "CodeElevateX";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
-if (!SMTP_USER || !SMTP_PASS) {
-  throw new Error("SMTP credentials are missing! Check your .env file.");
+if (!BREVO_API_KEY) {
+  throw new Error("BREVO_API_KEY is missing! Check your .env file.");
 }
 
-// -------------------- TRANSPORTER --------------------
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: false, // must be false for port 587
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS,
-  },
-});
+// -------------------- BREVO CLIENT --------------------
+const apiInstance = new brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
 
-// -------------------- VERIFY CONNECTION --------------------
-transporter.verify((err, success) => {
-  if (err) console.error("SMTP connection error:", err);
-  else console.log("SMTP server ready to send emails");
-});
+console.log("✅ Brevo API initialized successfully");
 
 // -------------------- SEND OTP --------------------
 async function sendOtpEmail({ to, otp, purpose }) {
-  let subject, html;
+  let subject, htmlContent;
 
   if (purpose === "signup") {
     subject = "Verify your account - OTP";
-    html = `
+    htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -72,7 +58,7 @@ async function sendOtpEmail({ to, otp, purpose }) {
   } else if (purpose === "reset") {
     const resetURL = `${CLIENT_URL}/reset-password/${otp}`;
     subject = "Reset Your Password";
-    html = `
+    htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -117,15 +103,20 @@ async function sendOtpEmail({ to, otp, purpose }) {
     `;
   }
 
-  const info = await transporter.sendMail({
-    from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
-    to,
-    subject,
-    html,
-  });
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+  sendSmtpEmail.sender = { name: FROM_NAME, email: FROM_EMAIL };
+  sendSmtpEmail.to = [{ email: to }];
+  sendSmtpEmail.subject = subject;
+  sendSmtpEmail.htmlContent = htmlContent;
 
-  console.log(`${purpose === 'signup' ? 'OTP' : 'Reset link'} email sent to ${to}: ${info.messageId}`);
-  return info;
+  try {
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log(`✅ ${purpose === 'signup' ? 'OTP' : 'Reset link'} email sent to ${to}: ${data.messageId}`);
+    return data;
+  } catch (error) {
+    console.error('❌ Brevo API error:', error.response ? error.response.body : error);
+    throw error;
+  }
 }
 
-module.exports = { sendOtpEmail, transporter };
+module.exports = { sendOtpEmail };
