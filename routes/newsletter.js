@@ -2,7 +2,14 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const User = require('../models/user');
-const transporter = require('../utils/mailer');
+const brevo = require('@getbrevo/brevo');
+
+// Initialize Brevo API
+const apiInstance = new brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+
+const FROM_EMAIL = process.env.FROM_EMAIL || "noreply@codeelevatex.sbs";
+const FROM_NAME = process.env.FROM_NAME || "codeElevateX";
 
 // -------------------------
 // Subscribe to Newsletter
@@ -48,61 +55,62 @@ router.post('/subscribe', express.json(), async (req, res) => {
       .update(email.toLowerCase())
       .digest('hex');
 
-    // Send welcome email
+    // Send welcome email using Brevo API
     const unsubscribeUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/unsubscribe?email=${encodeURIComponent(email)}&token=${unsubscribeToken}`;
 
-    await transporter.sendMail({
-      from: `"codeElevateX" <${process.env.BREVO_EMAIL}>`,
-      to: email,
-      subject: '🎉 Welcome to codeElevateX Newsletter!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px;">
-          <div style="background: white; border-radius: 10px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <img src="${process.env.FRONTEND_URL}/codeElevateXlogo.png" alt="codeElevateX Logo" style="height: 60px;">
-            </div>
-            
-            <h2 style="color: #667eea; text-align: center; margin-bottom: 20px;">🎉 Welcome to Our Newsletter!</h2>
-            
-            <p style="font-size: 16px; color: #333; line-height: 1.6;">
-              Thank you for subscribing to the codeElevateX newsletter!
-            </p>
-            
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; margin: 25px 0; border-radius: 10px; color: white; text-align: center;">
-              <h3 style="margin: 0 0 15px 0; color: white;">What You'll Get:</h3>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="margin: 10px 0;">✨ Latest course updates</li>
-                <li style="margin: 10px 0;">💡 Exclusive coding tips & tricks</li>
-                <li style="margin: 10px 0;">🎁 Special offers & discounts</li>
-                <li style="margin: 10px 0;">📚 New tutorials & resources</li>
-              </ul>
-            </div>
-            
-            <p style="font-size: 16px; color: #333; line-height: 1.6;">
-              We're excited to have you as part of our learning community! 🚀
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}" 
-                 style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
-                Explore Our Courses
-              </a>
-            </div>
-            
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-            
-            <p style="font-size: 12px; color: #999; text-align: center;">
-              © ${new Date().getFullYear()} codeElevateX. All rights reserved.<br>
-              Don't want these emails? <a href="${unsubscribeUrl}" style="color: #667eea; text-decoration: underline;">Unsubscribe here</a>
-            </p>
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.sender = { name: FROM_NAME, email: FROM_EMAIL };
+    sendSmtpEmail.to = [{ email: email }];
+    sendSmtpEmail.subject = '🎉 Welcome to codeElevateX Newsletter!';
+    sendSmtpEmail.htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px;">
+        <div style="background: white; border-radius: 10px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <img src="${process.env.FRONTEND_URL}/codeElevateXlogo.png" alt="codeElevateX Logo" style="height: 60px;">
           </div>
+          
+          <h2 style="color: #667eea; text-align: center; margin-bottom: 20px;">🎉 Welcome to Our Newsletter!</h2>
+          
+          <p style="font-size: 16px; color: #333; line-height: 1.6;">
+            Thank you for subscribing to the codeElevateX newsletter!
+          </p>
+          
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; margin: 25px 0; border-radius: 10px; color: white; text-align: center;">
+            <h3 style="margin: 0 0 15px 0; color: white;">What You'll Get:</h3>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              <li style="margin: 10px 0;">✨ Latest course updates</li>
+              <li style="margin: 10px 0;">💡 Exclusive coding tips & tricks</li>
+              <li style="margin: 10px 0;">🎁 Special offers & discounts</li>
+              <li style="margin: 10px 0;">📚 New tutorials & resources</li>
+            </ul>
+          </div>
+          
+          <p style="font-size: 16px; color: #333; line-height: 1.6;">
+            We're excited to have you as part of our learning community! 🚀
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}" 
+               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+              Explore Our Courses
+            </a>
+          </div>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+          
+          <p style="font-size: 12px; color: #999; text-align: center;">
+            © ${new Date().getFullYear()} codeElevateX. All rights reserved.<br>
+            Don't want these emails? <a href="${unsubscribeUrl}" style="color: #667eea; text-decoration: underline;">Unsubscribe here</a>
+          </p>
         </div>
-      `,
-    });
+      </div>
+    `;
+
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
 
     res.json({ success: true, message: 'Successfully subscribed! Check your email for confirmation.' });
   } catch (err) {
-    console.error('Newsletter subscription error:', err);
+    console.error('Newsletter subscription error:', err.response ? err.response.body : err);
     res.status(500).json({ success: false, message: 'Failed to subscribe. Please try again later.' });
   }
 });
