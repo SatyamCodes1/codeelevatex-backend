@@ -95,11 +95,13 @@ connectDB()
 app.use(helmet());
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
+// ✅ Updated CORS setup
 app.use(
   cors({
     origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'https://darien-hypereutectic-natively.ngrok-free.dev',
+      process.env.FRONTEND_URL, // from .env
+      'https://codeelevatex.sbs',
+      'https://www.codeelevatex.sbs',
     ],
     credentials: true,
   })
@@ -183,7 +185,7 @@ app.use((err, req, res, next) => {
 // -------------------- START SERVER --------------------
 app.listen(PORT, () => {
   console.log(`🚀 Server is live on port: ${PORT}`);
-  console.log(`🌍 Access it at: http://localhost:${PORT}`);
+  console.log(`🌍 Access it at: https://api.codeelevatex.sbs`);
   console.log(`⚙️ Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
