@@ -2,7 +2,7 @@ const express = require("express");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const router = express.Router();
-const transporter = require("../utils/mailer");
+const brevo = require('@getbrevo/brevo');
 const User = require("../models/user");
 const Course = require("../models/Course");
 const Enrollment = require("../models/Enrollment");
@@ -13,32 +13,33 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// Initialize Brevo API
+const apiInstance = new brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+
 // Define sender email from env or default
 const FROM_EMAIL = process.env.FROM_EMAIL || "no-reply@codeelevatex.sbs";
 const FROM_NAME = process.env.FROM_NAME || "codeElevateX";
-const SENDER = `"${FROM_NAME}" <${FROM_EMAIL}>`;
 
-// Helper function to send emails with explicit from address
-const sendEmail = async (to, subject, html, fromEmail) => {
+// Helper function to send emails using Brevo API
+const sendEmail = async (to, subject, html) => {
   try {
     console.log("📧 Sending email to:", to);
     console.log("   Subject:", subject);
-    console.log("   From:", fromEmail);
+    console.log("   From:", FROM_NAME, "<" + FROM_EMAIL + ">");
 
-    const mailOptions = {
-      from: fromEmail,
-      to: to,
-      subject: subject,
-      html: html,
-    };
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.sender = { name: FROM_NAME, email: FROM_EMAIL };
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html;
 
-    const info = await transporter.sendMail(mailOptions);
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
     console.log("✅ Email sent successfully!");
-    console.log("   Message ID:", info.messageId);
-    console.log("   Response:", info.response);
-    return { success: true, messageId: info.messageId };
+    console.log("   Message ID:", data.messageId);
+    return { success: true, messageId: data.messageId };
   } catch (err) {
-    console.error("❌ Error sending email:", err.message);
+    console.error("❌ Error sending email:", err.response ? err.response.body : err.message);
     console.error("   Full error:", err);
     return { success: false, error: err.message };
   }
@@ -255,8 +256,7 @@ router.post("/verify-payment", express.json(), async (req, res) => {
     const paymentEmailResult = await sendEmail(
       user.email,
       "Payment Successful - codeElevateX",
-      paymentEmailHtml,
-      SENDER
+      paymentEmailHtml
     );
 
     // 2. Send Course Enrollment Email
@@ -328,8 +328,7 @@ router.post("/verify-payment", express.json(), async (req, res) => {
       enrollmentEmailResult = await sendEmail(
         user.email,
         `Welcome to ${courseDetails.title} - codeElevateX`,
-        enrollmentEmailHtml,
-        SENDER
+        enrollmentEmailHtml
       );
     }
 
